@@ -16,4 +16,7 @@ dependencies = [
     "langgraph>=0.3.34",
     "pyarrow>=19.0.0",
     "python-dotenv>=1.1.0",
+    "pydantic>=2.11.5",
+    "sqlalchemy>=2.0.41",
+    "sqlmodel>=0.0.31",
 ]

@@ -1,0 +1,70 @@
+{
+  "id": 1001,
+  "tms_id": "TMS-2026-001",
+  "bol_num": "BOL-ABC123",
+  "status": "NEW",
+  "stops": [
+    {
+      "id": 1,
+      "shipment_id": 1001,
+      "type": "PICK_UP",
+      "is_escalated": false,
+      "po_list": [
+        {
+          "po_num": "PO-001",
+          "po_state": "SCHEDULED",
+          "is_escalated": false
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "shipment_id": 1001,
+      "type": "DROP_OFF",
+      "is_escalated": true,
+      "escalation_reason": "one of the POs is escalated",
+      "po_list": [
+        {
+          "po_num": "PO-002",
+          "po_state": "SCHEDULED",
+          "is_escalated": false
+        },
+        {
+          "po_num": "PO-003",
+          "po_state": "PENDING",
+          "is_escalated": false
+        },
+        {
+          "po_num": "PO-004",
+          "po_state": "ESCALATED",
+          "is_escalated": true,
+          "escalation_reason": "Delivery location requires special access"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "shipment_id": 1001,
+      "type": "DROP_OFF",
+      "is_escalated": false,
+      "po_list": [
+        {
+          "po_num": "PO-005",
+          "po_state": "SCHEDULED",
+          "is_escalated": false
+        },
+        {
+          "po_num": "PO-006",
+          "po_state": "SCHEDULED",
+          "is_escalated": false
+        },
+        {
+            "po_num": "PO-007",
+            "po_state": "ESCALATED",
+            "is_escalated": true,
+            "escalation_reason": "need user approval for drop off"
+          }
+      ]
+    }
+  ]
+}

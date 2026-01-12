@@ -1,48 +1,55 @@
+"""
+Shipment Processing Graph Builder with Hierarchical States
+
+This graph demonstrates:
+1. Hierarchical state management (Shipment → Stop → PO)
+2. Processing at appropriate levels (ShipmentState, StopState, POState)
+3. Parallel PO processing via subgraphs
+4. State rollup from child to parent levels
+5. Deterministic processing (skipping PICK_UP stops)
+6. Human-in-the-loop at PO level (within subgraph)
+"""
 from langgraph.graph import StateGraph, START, END
 
-from src.agents import State
-from src.agents.logical_agent_node import logical_agent_node
-from src.agents.message_classifier_node import message_classifier_node
-from src.agents.music_agent_node import music_agent_node
-from src.agents.router_node import router_node
-from src.agents.therapist_agent_node import therapist_agent_node
+from src.agents import ShipmentState
+from src.agents.shipment_processor_node import shipment_processor_node
+from src.agents.stop_invoker_node import stop_invoker_node, check_if_complete
+from src.agents.next_stop_node import next_stop_node
 
-CLASSIFIER_NODE = "classifier_node"
-ROUTER_NODE = "router_node"
-THERAPIST_AGENT_NODE = "therapist_agent_node"
-LOGICAL_AGENT_NODE = "logical_agent_node"
-MUSIC_AGENT_NODE = "music_agent_node"
+# Node names
+SHIPMENT_PROCESSOR = "shipment_processor"
+STOP_INVOKER = "stop_invoker"
+NEXT_STOP = "next_stop"
 
-graph_builder = StateGraph(State)
-graph_builder.add_node(CLASSIFIER_NODE, message_classifier_node)
-graph_builder.add_node(ROUTER_NODE, router_node)
-graph_builder.add_node(THERAPIST_AGENT_NODE, therapist_agent_node)
-graph_builder.add_node(LOGICAL_AGENT_NODE, logical_agent_node)
-graph_builder.add_node(MUSIC_AGENT_NODE, music_agent_node)
+# Build the shipment processing graph (operates at Shipment level)
+graph_builder = StateGraph(ShipmentState)
 
-graph_builder.add_edge(START, CLASSIFIER_NODE)
-graph_builder.add_edge(CLASSIFIER_NODE, ROUTER_NODE)
+# Add nodes
+graph_builder.add_node(SHIPMENT_PROCESSOR, shipment_processor_node)
+graph_builder.add_node(STOP_INVOKER, stop_invoker_node)
+graph_builder.add_node(NEXT_STOP, next_stop_node)
 
+# Start -> Initialize shipment processing
+graph_builder.add_edge(START, SHIPMENT_PROCESSOR)
 
+# Shipment processor -> Stop invoker
+graph_builder.add_edge(SHIPMENT_PROCESSOR, STOP_INVOKER)
+
+# After stop processing, check if complete
 graph_builder.add_conditional_edges(
-    ROUTER_NODE,
-    lambda state: state.get("next"),
-    {"therapist": THERAPIST_AGENT_NODE, "logical": LOGICAL_AGENT_NODE, "music": MUSIC_AGENT_NODE}
+    STOP_INVOKER,
+    check_if_complete,
+    {
+        "complete": END,          # All stops processed
+        "continue": NEXT_STOP     # Move to next stop
+    }
 )
 
-graph_builder.add_edge(THERAPIST_AGENT_NODE, END)
-graph_builder.add_edge(LOGICAL_AGENT_NODE, END)
-graph_builder.add_edge(MUSIC_AGENT_NODE, END)
+# After advancing to next stop, process it
+graph_builder.add_edge(NEXT_STOP, STOP_INVOKER)
 
+# Compile the graph
 my_graph = graph_builder.compile()
 
-
-
-
-
-
-graph_builder.add_conditional_edges(
-    "router",
-    lambda state: state.get("next"),
-    {"therapist": "therapist", "logical": "logical", "music": "music"}
-)
+# For backward compatibility (if needed)
+shipment_graph = my_graph
