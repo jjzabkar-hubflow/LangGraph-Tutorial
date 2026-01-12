@@ -8,6 +8,7 @@ This subgraph:
 - Returns results that roll up to parent Stop
 """
 from langgraph.graph import StateGraph, START, END
+from langgraph.checkpoint.memory import MemorySaver
 from src.agents import POState
 from src.agents.po_processor_node import (
     po_processor_node,
@@ -39,8 +40,16 @@ po_graph_builder.add_conditional_edges(
     }
 )
 
-# After review, end
-po_graph_builder.add_edge(PO_REVIEW, END)
+# After review, check if resolved or needs to loop back
+po_graph_builder.add_conditional_edges(
+    PO_REVIEW,
+    check_po_needs_review,
+    {
+        "needs_review": PO_REVIEW,  # Still needs review - loop again
+        "complete": END              # Resolved - done
+    }
+)
 
-# Compile the PO subgraph
-po_subgraph = po_graph_builder.compile()
+# Compile the PO subgraph with checkpointer for parallel execution support
+# The checkpointer enables state persistence and parallel execution coordination
+po_subgraph = po_graph_builder.compile(checkpointer=MemorySaver())

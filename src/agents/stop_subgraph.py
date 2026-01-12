@@ -6,6 +6,8 @@ from langgraph.graph import StateGraph, START, END
 from src.agents import StopState, POState
 from src.agents.model import StopType
 from src.agents.po_subgraph import po_subgraph
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import uuid
 
 
 def check_stop_type_node(state: StopState) -> StopState:
@@ -40,45 +42,70 @@ def prepare_po_processing(state: StopState) -> StopState:
     return state
 
 
+def process_single_po(po, stop_id: int):
+    """
+    Process a single PO through the subgraph in parallel.
+    Returns tuple of (po_num, po_result, processed_po)
+    """
+    # Create PO-level state
+    po_state: POState = {
+        "po": po,
+        "processing_result": "",
+        "needs_review": False,
+        "escalation_message": None
+    }
+    
+    # Generate unique thread_id for parallel execution
+    thread_id = str(uuid.uuid4())
+    config = {"configurable": {"thread_id": thread_id}}
+    
+    # Invoke PO subgraph with config for parallel execution
+    po_result = po_subgraph.invoke(po_state, config=config)
+    
+    return (po.po_num, po_result, po_result["po"])
+
+
 def process_single_po_wrapper(state: StopState) -> StopState:
     """
-    Wrapper node that processes a single PO through the subgraph.
-    In a real implementation, this would be parallelized across all POs.
-    For visualization purposes, this shows the PO subgraph integration.
+    Wrapper node that processes POs through the subgraph in parallel.
+    Uses ThreadPoolExecutor to process multiple POs concurrently.
     """
     stop = state["stop"]
     
-    # Process each PO through the PO subgraph
-    # Note: In production, this would be done in parallel
+    print(f"⚡ Starting parallel processing of {len(stop.po_list)} POs on stop {stop.id}")
+    
+    # Process POs in parallel using ThreadPoolExecutor
     po_results = {}
     any_escalated = False
     escalation_messages = []
+    processed_pos = {}
     
-    for po in stop.po_list:
-        # Create PO-level state
-        po_state: POState = {
-            "po": po,
-            "processing_result": "",
-            "needs_review": False,
-            "escalation_message": None
+    # Use ThreadPoolExecutor for parallel execution
+    with ThreadPoolExecutor(max_workers=min(len(stop.po_list), 2)) as executor:
+        # Submit all PO processing tasks
+        future_to_po = {
+            executor.submit(process_single_po, po, stop.id): po 
+            for po in stop.po_list
         }
         
-        # Invoke PO subgraph
-        po_result = po_subgraph.invoke(po_state)
-        
-        # Collect results
-        po_results[po.po_num] = po_result["processing_result"]
-        
-        if po_result.get("needs_review") or po_result["processing_result"] == "ESCALATED":
-            any_escalated = True
-            if po_result.get("escalation_message"):
-                escalation_messages.append(po_result["escalation_message"])
-        
-        # Update the PO in the stop with processed version
-        for idx, stop_po in enumerate(stop.po_list):
-            if stop_po.po_num == po.po_num:
-                stop.po_list[idx] = po_result["po"]
-                break
+        # Collect results as they complete
+        for future in as_completed(future_to_po):
+            po_num, po_result, processed_po = future.result()
+            print(f'🎯Finished processing PO {po_num}')
+            
+            # Collect results
+            po_results[po_num] = po_result["processing_result"]
+            processed_pos[po_num] = processed_po
+            
+            if po_result.get("needs_review") or po_result["processing_result"] == "ESCALATED":
+                any_escalated = True
+                if po_result.get("escalation_message"):
+                    escalation_messages.append(po_result["escalation_message"])
+    
+    # Update all POs in the stop with processed versions
+    for idx, po in enumerate(stop.po_list):
+        if po.po_num in processed_pos:
+            stop.po_list[idx] = processed_pos[po.po_num]
     
     # Roll up escalation to stop level if any PO was escalated
     if any_escalated:
@@ -88,7 +115,7 @@ def process_single_po_wrapper(state: StopState) -> StopState:
         stop.is_escalated = False
         stop.escalation_reason = None
     
-    print(f"✓ All POs processed for stop {stop.id}")
+    print(f"✓ All {len(stop.po_list)} POs processed in parallel for stop {stop.id}")
     print(f"  Results: {po_results}")
     print(f"  Stop escalated: {stop.is_escalated}")
     

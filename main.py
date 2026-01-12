@@ -8,7 +8,9 @@ This demonstrates:
 - Human-in-the-loop for escalation resolution
 - Partial state changes at Stop and PO levels
 """
+import json
 import uuid
+from pathlib import Path
 from dotenv import load_dotenv
 
 from src.agents.graph_builder import my_graph
@@ -20,78 +22,45 @@ load_dotenv()
 
 def create_sample_shipment() -> Shipment:
     """
-    Create a sample shipment for demonstration purposes.
+    Create a sample shipment from sample_shipment.json file.
     """
+    # Load the JSON file
+    json_path = Path(__file__).parent / "sample_shipment.json"
+    with open(json_path, "r") as f:
+        data = json.load(f)
+    
+    # Parse PurchaseOrders for each stop
+    stops = []
+    for stop_data in data["stops"]:
+        po_list = [
+            PurchaseOrder(
+                po_num=po["po_num"],
+                po_state=PoState(po["po_state"]),
+                is_escalated=po["is_escalated"],
+                escalation_reason=po.get("escalation_reason")
+            )
+            for po in stop_data["po_list"]
+        ]
+        
+        stop = Stop(
+            id=stop_data["id"],
+            shipment_id=stop_data["shipment_id"],
+            type=StopType(stop_data["type"]),
+            is_escalated=stop_data["is_escalated"],
+            escalation_reason=stop_data.get("escalation_reason"),
+            po_list=po_list
+        )
+        stops.append(stop)
+    
+    # Create the shipment
     shipment = Shipment(
-        id=1001,
-        tms_id="TMS-2026-001",
-        bol_num="BOL-ABC123",
-        status=ShipmentStatus.NEW,
-        stops=[]
+        id=data["id"],
+        tms_id=data["tms_id"],
+        bol_num=data["bol_num"],
+        status=ShipmentStatus(data["status"]),
+        stops=stops
     )
     
-    # Stop 1: PICK_UP (should be skipped)
-    stop1 = Stop(
-        id=1,
-        shipment_id=shipment.id,
-        type=StopType.PICK_UP,
-        is_escalated=False,
-        po_list=[
-            PurchaseOrder(
-                po_num="PO-001",
-                po_state=PoState.SCHEDULED,
-                is_escalated=False
-            )
-        ]
-    )
-    
-    # Stop 2: DROP_OFF with mixed PO states
-    stop2 = Stop(
-        id=2,
-        shipment_id=shipment.id,
-        type=StopType.DROP_OFF,
-        is_escalated=False,
-        po_list=[
-            PurchaseOrder(
-                po_num="PO-002",
-                po_state=PoState.SCHEDULED,
-                is_escalated=False
-            ),
-            PurchaseOrder(
-                po_num="PO-003",
-                po_state=PoState.PENDING,
-                is_escalated=False
-            ),
-            PurchaseOrder(
-                po_num="PO-004",
-                po_state=PoState.ESCALATED,
-                is_escalated=True,
-                escalation_reason="Delivery location requires special access"
-            )
-        ]
-    )
-    
-    # Stop 3: DROP_OFF with all scheduled POs
-    stop3 = Stop(
-        id=3,
-        shipment_id=shipment.id,
-        type=StopType.DROP_OFF,
-        is_escalated=False,
-        po_list=[
-            PurchaseOrder(
-                po_num="PO-005",
-                po_state=PoState.SCHEDULED,
-                is_escalated=False
-            ),
-            PurchaseOrder(
-                po_num="PO-006",
-                po_state=PoState.SCHEDULED,
-                is_escalated=False
-            )
-        ]
-    )
-    
-    shipment.stops = [stop1, stop2, stop3]
     return shipment
 
 

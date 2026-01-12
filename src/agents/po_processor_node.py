@@ -4,6 +4,7 @@ This demonstrates parallel processing capabilities at the PO level
 """
 from src.agents import POState
 from src.agents.model import PoState as PoStateEnum
+from src.chat.service.llm_chat_model_service import llm
 import time
 import random
 
@@ -19,9 +20,7 @@ def po_processor_node(state: POState) -> POState:
     """
     po = state["po"]
     
-    print(f"\n  → Processing PO: {po.po_num}")
-    print(f"    State: {po.po_state}")
-    print(f"    Escalated: {po.is_escalated}")
+    print(f"\n  → Processing PO: {po.po_num}, State: {po.po_state}, Escalated: {po.is_escalated}")
     
     # Simulate processing time
     time.sleep(random.uniform(1.0, 5.0))
@@ -83,23 +82,68 @@ def check_po_needs_review(state: POState) -> str:
 
 def resolve_po_escalation(state: POState) -> POState:
     """
-    Resolve PO escalation after human review.
+    Resolve PO escalation by requesting human input via LLM.
+    If input is acceptable, resolve the state.
+    Otherwise, keep needs_review=True to loop again.
     """
     po = state["po"]
     
-    print(f"  ✓ Resolving escalation for PO {po.po_num}")
+    print(f"\n  🤖 Requesting human input for escalated PO {po.po_num}")
+    print(f"     Escalation reason: {po.escalation_reason}")
+    raw_input = input(f"  📫Enter your input (simulating email resolution): ")
     
-    # Change state from ESCALATED to SCHEDULED
-    if po.po_state == PoStateEnum.ESCALATED:
-        po.po_state = PoStateEnum.SCHEDULED
+    # Use LLM to ask for human input
+    prompt = f"""Evaluate the following input to determine if the PO should be approved or rejected.
+
+Purchase Order: {po.po_num}
+Purchase Order State: {po.po_state}
+Purchase Order Escalated: {po.is_escalated}
+Purchase Order Escalation Reason: {po.escalation_reason}
+
+Input: {raw_input}
+
+Possible states to return:
+    SCHEDULED: if approved, looks good, or otherise schedule
+    PENDING: if still in progress, or otherwise incomplete
+    ESCALATED: if there is still a problem. Update the escalation reason and return the escalated state.
+
+What is your decision?"""
     
-    po.is_escalated = False
-    po.escalation_reason = None
+    # Get human input via LLM
+    response = llm.invoke([{"role": "user", "content": prompt}])
+    human_input = response.content.strip().lower()
     
-    return {
-        **state,
-        "po": po,
-        "processing_result": "SCHEDULED",
-        "needs_review": False,
-        "escalation_message": None
-    }
+    print(f"     Human input received: {human_input}")
+    
+    # Check if input is acceptable (approve keywords)
+    approve_keywords = ["approve", "accept", "schedule", "looks good", "ok", "yes", "proceed", "continue"]
+    is_acceptable = any(keyword in human_input for keyword in approve_keywords)
+    
+    if is_acceptable:
+        print(f"  ✓ Input accepted - Resolving escalation for PO {po.po_num}")
+        
+        # Change state from ESCALATED to SCHEDULED
+        if po.po_state == PoStateEnum.ESCALATED:
+            po.po_state = PoStateEnum.SCHEDULED
+        
+        po.is_escalated = False
+        po.escalation_reason = None
+        
+        return {
+            **state,
+            "po": po,
+            "processing_result": "SCHEDULED",
+            "needs_review": False,
+            "escalation_message": None
+        }
+    else:
+        print(f"  ⚠️  Input not acceptable - PO {po.po_num} requires additional review")
+        
+        # Keep escalated state and loop again
+        return {
+            **state,
+            "po": po,
+            "processing_result": "ESCALATED",
+            "needs_review": True,
+            "escalation_message": f"PO {po.po_num} requires additional review. Human input: {human_input}"
+        }
