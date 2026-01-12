@@ -22,12 +22,22 @@ graph TD;
 	subgraph stop_invoker
 	stop_invoker\3acheck_stop_type(check_stop_type)
 	stop_invoker\3aprepare_po_processing(prepare_po_processing)
-	stop_invoker\3aprocess_pos(process_pos)
+	stop_invoker\3aprocess_pos_parallel(process_pos_parallel)
 	stop_invoker\3a__end__(<p>__end__</p>)
 	stop_invoker\3acheck_stop_type -. &nbsp;pickup&nbsp; .-> stop_invoker\3a__end__;
 	stop_invoker\3acheck_stop_type -. &nbsp;dropoff&nbsp; .-> stop_invoker\3aprepare_po_processing;
-	stop_invoker\3aprepare_po_processing --> stop_invoker\3aprocess_pos;
-	stop_invoker\3aprocess_pos --> stop_invoker\3a__end__;
+	stop_invoker\3apo_subgraph\3a__end__ --> stop_invoker\3aprocess_pos_parallel;
+	stop_invoker\3aprepare_po_processing --> stop_invoker\3apo_subgraph\3apo_processor;
+	stop_invoker\3aprocess_pos_parallel --> stop_invoker\3a__end__;
+	subgraph po_subgraph
+	stop_invoker\3apo_subgraph\3apo_processor(po_processor)
+	stop_invoker\3apo_subgraph\3apo_review(po_review)
+	stop_invoker\3apo_subgraph\3a__end__(<p>__end__</p>)
+	stop_invoker\3apo_subgraph\3apo_processor -. &nbsp;complete&nbsp; .-> stop_invoker\3apo_subgraph\3a__end__;
+	stop_invoker\3apo_subgraph\3apo_processor -. &nbsp;needs_review&nbsp; .-> stop_invoker\3apo_subgraph\3apo_review;
+	stop_invoker\3apo_subgraph\3apo_review -. &nbsp;complete&nbsp; .-> stop_invoker\3apo_subgraph\3a__end__;
+	stop_invoker\3apo_subgraph\3apo_review -. &nbsp;needs_review&nbsp; .-> stop_invoker\3apo_subgraph\3apo_review;
+	end
 	end
 	classDef default fill:#f2f0ff,line-height:1.2
 	classDef first fill-opacity:0

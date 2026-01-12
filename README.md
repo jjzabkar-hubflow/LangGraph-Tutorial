@@ -18,9 +18,9 @@ This tutorial demonstrates a real-world shipment processing workflow that showca
    - Demonstrates nested iteration through complex data structures
 
 ### 2. **Deterministic Routing with Conditional Nodes**
-   - PICK_UP stops are automatically skipped (marked as non-escalated)
+   - PICK_UP stops are skipped (marked as non-escalated) to show forced deterministic processing 
    - DROP_OFF stops are processed with full PO validation
-   - Conditional edges determine processing flow based on stop type
+   - Conditional edges determine processing flow
    - Graph is mostly deterministic
 
 ### 3. **Partial State Changes**
@@ -34,11 +34,10 @@ This tutorial demonstrates a real-world shipment processing workflow that showca
    - Resume processing after escalation resolution
    - Perfect for approval workflows and exception handling
 
-### 5. **Parallel Processing with State Rollup** ⚡ NEW!
+### 5. **Parallel Processing with State Rollup**
    - **PO-level processing**: Each PO processed through isolated subgraph
    - **True parallel execution**: Multiple POs processed concurrently using ThreadPoolExecutor
    - **Thread-safe state**: MemorySaver checkpointer with unique thread_ids
-   - **Performance**: ~3x faster processing with typical PO counts
    - **State rollup**: Results roll up from PO → Stop → Shipment levels
    - **Subgraph invocation**: Stop processor invokes PO subgraph in parallel
 
@@ -65,8 +64,6 @@ uv sync;
 ```
 
 ## Running the Tutorial
-
-### Command Line Demo
 
 ```bash
 uv run main.py
