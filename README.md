@@ -55,11 +55,11 @@ This tutorial uses **proper state separation** at each processing level:
 
 ## Setup
 
-### UV Package Manager
-
 Install [UV](https://docs.astral.sh/uv/)
 
 ```bash
+# set up environment variables
+cp .env.example .env;
 brew install uv;
 uv sync;
 ```
