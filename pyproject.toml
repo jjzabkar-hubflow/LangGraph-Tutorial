@@ -3,7 +3,7 @@ name = "langgraph-tutorial"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.13,<3.14"
 dependencies = [
     "asyncio>=3.4.3",
     "flask>=3.1.1",
@@ -12,6 +12,8 @@ dependencies = [
     "langchain-google-genai>=2.1.5",
     "langchain-google-vertexai>=2.0.24",
     "langchain[anthropic,ollama]>=0.3.24",
+    "langchain-openai>=0.3.0",
     "langgraph>=0.3.34",
+    "pyarrow>=19.0.0",
     "python-dotenv>=1.1.0",
 ]
